@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: whenever-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /hello
+    autoDeployTrigger: commit
+    envVars:
+      - key: DB_URI
+        sync: false
+      - key: EMAIL_SERVICE
+        value: gmail
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRES
+        value: 86400000
+      - key: OTP_LENGTH
+        value: 6
+      - key: OTP_EXPIRES_MS
+        value: 600000
+      - key: CLIENT_ORIGINS
+        sync: false

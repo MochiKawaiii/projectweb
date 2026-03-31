@@ -1,0 +1,101 @@
+/* ===== WHENEVER Atelier — Admin Panel Styles ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; color: #111; background: #f9f9f9; }
+
+.body-admin { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+/* Login */
+.align-valign-center {
+  position: fixed; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 40px; background: #fff; border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.1); min-width: 380px;
+}
+.align-valign-center h2 { margin-bottom: 24px; font-size: 20px; letter-spacing: 2px; }
+.align-valign-center input[type="text"],
+.align-valign-center input[type="password"] {
+  width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 6px;
+  margin-bottom: 12px; font-size: 14px; outline: none;
+}
+.align-valign-center input[type="text"]:focus,
+.align-valign-center input[type="password"]:focus { border-color: #111; }
+.align-valign-center input[type="submit"] {
+  padding: 10px 32px; background: #111; color: #fff; border: none;
+  border-radius: 6px; font-size: 13px; font-weight: 600;
+  letter-spacing: 1px; cursor: pointer; text-transform: uppercase;
+}
+.align-valign-center input[type="submit"]:hover { background: #333; }
+
+/* Menu */
+.admin-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 0; border-bottom: 2px solid #111; margin-bottom: 30px;
+}
+.admin-header .logo { font-size: 18px; font-weight: 700; letter-spacing: 2px; }
+.admin-nav { display: flex; gap: 24px; align-items: center; }
+.admin-nav a {
+  font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #555; text-decoration: none; transition: color 0.3s;
+}
+.admin-nav a:hover, .admin-nav a.active { color: #111; }
+.admin-user { font-size: 13px; color: #888; }
+.admin-user b { color: #111; }
+.admin-user a { color: #c00; cursor: pointer; text-decoration: underline; margin-left: 8px; }
+
+/* Layout */
+.align-center { width: fit-content; margin: 0 auto; }
+.text-center { text-align: center; }
+.inline { display: inline-block; vertical-align: top; margin: 0 20px; }
+.float-left { float: left; }
+.float-right { float: right; }
+.float-clear { clear: both; }
+span.link { cursor: pointer; color: #0066cc; text-decoration: underline; font-size: 13px; }
+
+/* Section Title */
+h2.section-title {
+  font-size: 16px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 20px; padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+/* Data Table */
+.datatable { border-collapse: collapse; width: 100%; font-size: 13px; }
+.datatable th, .datatable td { padding: 10px 14px; border: 1px solid #e0e0e0; text-align: left; }
+.datatable th { background: #111; color: #fff; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; font-size: 11px; }
+.datatable tr:nth-child(even) { background: #f5f5f5; }
+.datatable tr:hover { background: #e8f0fe; cursor: pointer; }
+.datatable img { border-radius: 4px; object-fit: cover; }
+
+/* Detail Form */
+.detail-panel {
+  background: #fff; padding: 24px; border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06); min-width: 360px;
+}
+.detail-panel h2 { font-size: 14px; margin-bottom: 16px; }
+.detail-panel table { width: 100%; }
+.detail-panel td { padding: 6px 8px; font-size: 13px; }
+.detail-panel input[type="text"],
+.detail-panel input[type="number"],
+.detail-panel select,
+.detail-panel textarea {
+  width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;
+  font-size: 13px; outline: none;
+}
+.detail-panel input:focus, .detail-panel select:focus, .detail-panel textarea:focus { border-color: #111; }
+.detail-panel input[type="submit"], .detail-panel button {
+  padding: 8px 20px; background: #111; color: #fff; border: none;
+  border-radius: 4px; font-size: 12px; font-weight: 600;
+  letter-spacing: 1px; cursor: pointer; margin-right: 8px; text-transform: uppercase;
+}
+.detail-panel input[type="submit"]:hover, .detail-panel button:hover { background: #333; }
+
+/* Pagination */
+.pagination { margin-top: 16px; text-align: center; }
+.pagination span { padding: 4px 8px; cursor: pointer; font-size: 13px; }
+.pagination span b { color: #111; }
+
+/* Two Col Layout */
+.admin-content { display: flex; gap: 30px; align-items: flex-start; }
+.admin-content .list-panel { flex: 1; overflow-x: auto; }

@@ -1,0 +1,19 @@
+﻿{
+    "name":  "whenever-server",
+    "version":  "1.0.0",
+    "description":  "WHENEVER Atelier â€” Express.js Backend",
+    "main":  "index.js",
+    "scripts":  {
+                    "start":  "node index.js",
+                    "dev":  "nodemon index.js",
+                    "import:whenever":  "node scripts/importWheneverCatalog.js"
+                },
+    "dependencies":  {
+                         "express":  "^4.18.2",
+                         "body-parser":  "^1.20.2",
+                         "mongoose":  "^7.6.3",
+                         "jsonwebtoken":  "^9.0.2",
+                         "nodemailer":  "^6.9.7",
+                         "cors":  "^2.8.5"
+                     }
+}
