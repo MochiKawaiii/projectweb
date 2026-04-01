@@ -12,12 +12,20 @@ const CategoryDAO = require('../models/CategoryDAO');
 const ProductDAO = require('../models/ProductDAO');
 const OrderDAO = require('../models/OrderDAO');
 const CustomerDAO = require('../models/CustomerDAO');
+const Models = require('../models/Models');
 
 const normalizeText = (value = '') => value.trim();
 const normalizeEmail = (value = '') => value.trim().toLowerCase();
 const createOtpCode = () => String(randomInt(0, 10 ** Number(MyConstants.OTP_LENGTH || 6))).padStart(Number(MyConstants.OTP_LENGTH || 6), '0');
 const createOtpHash = (otp) => CryptoUtil.md5(`otp:${otp}`);
 const createOtpExpiry = () => Date.now() + Number(MyConstants.OTP_EXPIRES_MS || 600000);
+const ORDER_STATUS_TRANSITIONS = {
+  PENDING: ['APPROVED', 'CANCELED'],
+  APPROVED: ['SHIPPING', 'CANCELED'],
+  SHIPPING: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELED: [],
+};
 
 // ===== LOGIN =====
 router.post('/login', async function (req, res) {
@@ -118,15 +126,83 @@ router.delete('/products/:id', JwtUtil.checkToken, async function (req, res) {
 });
 
 // ===== ORDER =====
+router.get('/dashboard/summary', JwtUtil.checkToken, async function (req, res) {
+  try {
+    const [
+      orderSummary,
+      totalProducts,
+      totalCustomers,
+      activeCustomers,
+      totalCategories,
+    ] = await Promise.all([
+      OrderDAO.getDashboardSummary(),
+      Models.Product.countDocuments({}).exec(),
+      Models.Customer.countDocuments({}).exec(),
+      Models.Customer.countDocuments({ active: 1 }).exec(),
+      Models.Category.countDocuments({}).exec(),
+    ]);
+
+    res.json({
+      stats: {
+        totalOrders: orderSummary.totalOrders,
+        pendingOrders: orderSummary.pendingOrders,
+        approvedOrders: orderSummary.approvedOrders,
+        shippingOrders: orderSummary.shippingOrders,
+        deliveredOrders: orderSummary.deliveredOrders,
+        canceledOrders: orderSummary.canceledOrders,
+        totalRevenue: orderSummary.totalRevenue,
+        totalProducts,
+        totalCustomers,
+        activeCustomers,
+        totalCategories,
+      },
+      recentOrders: orderSummary.recentOrders,
+    });
+  } catch (error) {
+    console.error('Admin dashboard summary error:', error.message);
+    res.status(500).json({ success: false, message: 'Unable to load dashboard summary.' });
+  }
+});
 router.get('/orders', JwtUtil.checkToken, async function (req, res) {
   const orders = await OrderDAO.selectAll();
   res.json(orders);
 });
 router.put('/orders/status/:id', JwtUtil.checkToken, async function (req, res) {
-  const _id = req.params.id;
-  const newStatus = req.body.status;
-  const result = await OrderDAO.update(_id, newStatus);
-  res.json(result);
+  try {
+    const _id = req.params.id;
+    const newStatus = normalizeText(req.body.status).toUpperCase();
+
+    if (!newStatus) {
+      return res.status(400).json({ success: false, message: 'Order status is required.' });
+    }
+
+    const order = await OrderDAO.selectByID(_id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    const currentStatus = String(order.status || 'PENDING').toUpperCase();
+    const allowedStatuses = ORDER_STATUS_TRANSITIONS[currentStatus] || [];
+
+    if (!allowedStatuses.includes(newStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid order status transition from ${currentStatus} to ${newStatus}.`,
+        currentStatus,
+        allowedStatuses,
+      });
+    }
+
+    const result = await OrderDAO.updateStatus(_id, newStatus);
+    return res.json({
+      success: true,
+      message: `Order updated to ${newStatus}.`,
+      order: result,
+    });
+  } catch (error) {
+    console.error('Admin order status update error:', error.message);
+    return res.status(500).json({ success: false, message: 'Unable to update order status.' });
+  }
 });
 router.get('/orders/customer/:cid', JwtUtil.checkToken, async function (req, res) {
   const _cid = req.params.cid;

@@ -3,12 +3,26 @@ import React, { Component } from 'react';
 import MyContext from '../contexts/MyContext';
 import CustomerDetail from './CustomerDetailComponent';
 
+const CUSTOMER_LOAD_ERROR =
+  'Không tải được danh sách khách hàng. Máy chủ có thể đang khởi động lại, bạn thử lại sau vài giây nhé.';
+const CUSTOMER_ORDER_LOAD_ERROR =
+  'Không tải được đơn hàng của khách này. Bạn thử lại sau vài giây để đồng bộ dữ liệu mới nhất.';
+
 class Customer extends Component {
   static contextType = MyContext;
 
   constructor(props) {
     super(props);
-    this.state = { customers: [], orders: [], order: null, itemSelected: null };
+    this.state = {
+      customers: [],
+      orders: [],
+      order: null,
+      itemSelected: null,
+      isLoadingCustomers: true,
+      customerLoadError: '',
+      isLoadingOrders: false,
+      orderLoadError: '',
+    };
   }
 
   componentDidMount() {
@@ -54,25 +68,83 @@ class Customer extends Component {
   }
 
   updateCustomers = (customers) => {
-    this.setState({ customers });
+    this.setState({
+      customers,
+      isLoadingCustomers: false,
+      customerLoadError: '',
+    });
   };
 
   setSelectedCustomer = (itemSelected) => {
     this.setState({ itemSelected });
   };
 
-  apiGetCustomers() {
+  apiGetCustomers = () => {
     const config = { headers: { 'x-access-token': this.context.token } };
-    axios.get('/api/admin/customers', config).then((res) => {
-      this.setState({ customers: res.data });
-    });
+    this.setState({ isLoadingCustomers: true, customerLoadError: '' });
+    axios
+      .get('/api/admin/customers', config)
+      .then((res) => {
+        this.setState({
+          customers: Array.isArray(res.data) ? res.data : [],
+          isLoadingCustomers: false,
+          customerLoadError: '',
+        });
+      })
+      .catch(() => {
+        this.setState({
+          customers: [],
+          isLoadingCustomers: false,
+          customerLoadError: CUSTOMER_LOAD_ERROR,
+        });
+      });
+  };
+
+  apiGetOrdersByCustID = (cid) => {
+    const config = { headers: { 'x-access-token': this.context.token } };
+    this.setState({ isLoadingOrders: true, orderLoadError: '' });
+    axios
+      .get(`/api/admin/orders/customer/${cid}`, config)
+      .then((res) => {
+        this.setState({
+          orders: Array.isArray(res.data) ? res.data : [],
+          isLoadingOrders: false,
+          orderLoadError: '',
+        });
+      })
+      .catch(() => {
+        this.setState({
+          orders: [],
+          order: null,
+          isLoadingOrders: false,
+          orderLoadError: CUSTOMER_ORDER_LOAD_ERROR,
+        });
+      });
+  };
+
+  renderCustomerSkeletonRows() {
+    return Array.from({ length: 6 }, (_, index) => (
+      <tr key={`customer-skeleton-${index}`} className="admin-skeleton-table">
+        <td><div className="admin-skeleton-line is-medium"></div></td>
+        <td><div className="admin-skeleton-line is-medium"></div></td>
+        <td><div className="admin-skeleton-line is-long"></div></td>
+        <td><div className="admin-skeleton-line is-medium"></div></td>
+        <td><div className="admin-skeleton-line is-long"></div></td>
+        <td><div className="admin-skeleton-line is-short"></div></td>
+        <td><div className="admin-skeleton-line is-medium"></div></td>
+      </tr>
+    ));
   }
 
-  apiGetOrdersByCustID(cid) {
-    const config = { headers: { 'x-access-token': this.context.token } };
-    axios.get(`/api/admin/orders/customer/${cid}`, config).then((res) => {
-      this.setState({ orders: res.data });
-    });
+  renderOrderSkeletonRows() {
+    return Array.from({ length: 3 }, (_, index) => (
+      <tr key={`customer-order-skeleton-${index}`} className="admin-skeleton-table">
+        <td><div className="admin-skeleton-line is-medium"></div></td>
+        <td><div className="admin-skeleton-line is-medium"></div></td>
+        <td><div className="admin-skeleton-line is-short"></div></td>
+        <td><div className="admin-skeleton-line is-short"></div></td>
+      </tr>
+    ));
   }
 
   render() {
@@ -102,7 +174,7 @@ class Customer extends Component {
       <tr key={item._id} onClick={() => this.trOrderClick(item)}>
         <td>{item._id.substring(0, 8)}...</td>
         <td>{new Date(item.cdate).toLocaleString()}</td>
-        <td>{item.total?.toLocaleString()}₫</td>
+        <td>{item.total?.toLocaleString('vi-VN')}₫</td>
         <td>{item.status}</td>
       </tr>
     ));
@@ -113,9 +185,9 @@ class Customer extends Component {
         <tr key={index}>
           <td>{index + 1}</td>
           <td>{item.product?.name}</td>
-          <td>{item.product?.price?.toLocaleString()}₫</td>
+          <td>{item.product?.price?.toLocaleString('vi-VN')}₫</td>
           <td>{item.quantity}</td>
-          <td>{(item.product?.price * item.quantity)?.toLocaleString()}₫</td>
+          <td>{(item.product?.price * item.quantity)?.toLocaleString('vi-VN')}₫</td>
         </tr>
       ));
     }
@@ -124,26 +196,50 @@ class Customer extends Component {
       <div className="admin-content">
         <div className="list-panel">
           <h2 className="section-title">Customer List</h2>
-          <table className="datatable">
-            <tbody>
-              <tr><th>ID</th><th>Username</th><th>Name</th><th>Phone</th><th>Email</th><th>Status</th><th>Action</th></tr>
-              {customers}
-            </tbody>
-          </table>
-
-          {this.state.orders.length > 0 && (
-            <div style={{ marginTop: '30px' }}>
-              <h2 className="section-title">Orders by Customer</h2>
-              <table className="datatable">
-                <tbody>
-                  <tr><th>ID</th><th>Date</th><th>Total</th><th>Status</th></tr>
-                  {orders}
-                </tbody>
-              </table>
+          {this.state.customerLoadError ? (
+            <div className="admin-async-state">
+              <h3>Chưa tải được khách hàng</h3>
+              <p>{this.state.customerLoadError}</p>
+              <button type="button" className="admin-async-button" onClick={this.apiGetCustomers}>
+                Thử lại
+              </button>
             </div>
+          ) : (
+            <table className="datatable">
+              <tbody>
+                <tr><th>ID</th><th>Username</th><th>Name</th><th>Phone</th><th>Email</th><th>Status</th><th>Action</th></tr>
+                {this.state.isLoadingCustomers ? this.renderCustomerSkeletonRows() : customers}
+              </tbody>
+            </table>
           )}
 
-          {this.state.order && (
+          {this.state.itemSelected ? (
+            <div className="admin-subsection">
+              <h2 className="section-title">Orders by Customer</h2>
+              {this.state.orderLoadError ? (
+                <div className="admin-async-state">
+                  <h3>Chưa tải được đơn hàng</h3>
+                  <p>{this.state.orderLoadError}</p>
+                  <button
+                    type="button"
+                    className="admin-async-button"
+                    onClick={() => this.apiGetOrdersByCustID(this.state.itemSelected._id)}
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              ) : (
+                <table className="datatable">
+                  <tbody>
+                    <tr><th>ID</th><th>Date</th><th>Total</th><th>Status</th></tr>
+                    {this.state.isLoadingOrders ? this.renderOrderSkeletonRows() : orders}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : null}
+
+          {this.state.order && !this.state.orderLoadError ? (
             <div style={{ marginTop: '20px' }}>
               <h2 className="section-title">Order Detail</h2>
               <table className="datatable">
@@ -153,7 +249,7 @@ class Customer extends Component {
                 </tbody>
               </table>
             </div>
-          )}
+          ) : null}
         </div>
 
         <CustomerDetail

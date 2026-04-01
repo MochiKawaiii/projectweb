@@ -1,6 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
+const STATUS_LABELS = {
+  PENDING: 'Chờ xác nhận',
+  APPROVED: 'Đã xác nhận',
+  SHIPPING: 'Đang giao hàng',
+  DELIVERED: 'Đã giao hàng',
+  CANCELED: 'Đã hủy',
+};
+
 const formatCurrency = (value) => {
   const amount = Number(value || 0);
   return `${amount.toLocaleString('vi-VN')}đ`;
@@ -13,8 +21,12 @@ const formatDate = (value) => {
   return date.toLocaleString('vi-VN');
 };
 
+const getStatusLabel = (status) => STATUS_LABELS[status] || status || 'Không rõ';
+
 const getStatusClassName = (status) => {
   if (status === 'APPROVED') return 'status-badge is-approved';
+  if (status === 'SHIPPING') return 'status-badge is-shipping';
+  if (status === 'DELIVERED') return 'status-badge is-delivered';
   if (status === 'CANCELED') return 'status-badge is-canceled';
   return 'status-badge is-pending';
 };
@@ -33,6 +45,10 @@ function OrderHistorySection({
   subtitle = 'Theo dõi tình trạng xử lý và xem lại thông tin giao hàng của từng đơn.',
   showStandaloneLink = false,
   isLoading = false,
+  loadError = '',
+  onRetry = () => {},
+  onCancelOrder = null,
+  cancelingOrderId = '',
 }) {
   const orderRows = orders.map((item) => (
     <tr
@@ -44,12 +60,14 @@ function OrderHistorySection({
       <td>{formatDate(item.cdate)}</td>
       <td>{formatCurrency(item.total)}</td>
       <td>
-        <span className={getStatusClassName(item.status)}>{item.status}</span>
+        <span className={getStatusClassName(item.status)}>{getStatusLabel(item.status)}</span>
       </td>
     </tr>
   ));
 
   const selectedItems = Array.isArray(selectedOrder?.items) ? selectedOrder.items : [];
+  const canCancelSelectedOrder = Boolean(onCancelOrder) && selectedOrder?.status === 'PENDING';
+  const isCancelingSelectedOrder = cancelingOrderId === selectedOrder?._id;
 
   return (
     <section className="account-orders-section">
@@ -67,6 +85,15 @@ function OrderHistorySection({
 
       {isLoading ? (
         <div className="account-orders-empty">Đang tải danh sách đơn hàng của bạn...</div>
+      ) : loadError ? (
+        <div className="async-state-panel async-state-page">
+          <div className="async-state-eyebrow">WHENEVER ATELIER</div>
+          <h3>Chưa tải được đơn hàng</h3>
+          <p>{loadError}</p>
+          <button type="button" className="async-state-button" onClick={onRetry}>
+            Thử lại
+          </button>
+        </div>
       ) : orders.length === 0 ? (
         <div className="account-orders-empty">
           Bạn chưa có đơn hàng nào. Khi đặt hàng thành công, lịch sử đơn sẽ hiện ở đây.
@@ -117,7 +144,7 @@ function OrderHistorySection({
                   <div className="account-order-meta">
                     <div className="account-order-meta-row">
                       <span>Trạng thái</span>
-                      <strong className={getStatusClassName(selectedOrder.status)}>{selectedOrder.status}</strong>
+                      <strong className={getStatusClassName(selectedOrder.status)}>{getStatusLabel(selectedOrder.status)}</strong>
                     </div>
                     <div className="account-order-meta-row">
                       <span>Thanh toán</span>
@@ -136,6 +163,19 @@ function OrderHistorySection({
                       <strong>{formatCurrency(selectedOrder.total)}</strong>
                     </div>
                   </div>
+
+                  {canCancelSelectedOrder ? (
+                    <div className="account-order-actions">
+                      <button
+                        type="button"
+                        className="account-order-cancel-button"
+                        disabled={isCancelingSelectedOrder}
+                        onClick={() => onCancelOrder(selectedOrder)}
+                      >
+                        {isCancelingSelectedOrder ? 'Đang hủy đơn...' : 'Hủy đơn hàng'}
+                      </button>
+                    </div>
+                  ) : null}
                 </article>
               </div>
 

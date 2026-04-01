@@ -19,6 +19,8 @@ class ProductDetail extends Component {
       cmbCategory: '',
       selectedImageName: '',
       imageError: '',
+      loadingCategories: true,
+      categoryLoadError: '',
     };
   }
 
@@ -181,9 +183,25 @@ class ProductDetail extends Component {
 
   apiGetCategories() {
     const config = { headers: { 'x-access-token': this.context.token } };
-    axios.get('/api/admin/categories', config).then((res) => {
-      this.setState({ categories: res.data });
-    });
+    this.setState({ loadingCategories: true, categoryLoadError: '' });
+    axios
+      .get('/api/admin/categories', config)
+      .then((res) => {
+        const categories = Array.isArray(res.data) ? res.data : [];
+        this.setState({
+          categories,
+          loadingCategories: false,
+          categoryLoadError: '',
+          cmbCategory: this.state.cmbCategory || categories[0]?._id || '',
+        });
+      })
+      .catch(() => {
+        this.setState({
+          categories: [],
+          loadingCategories: false,
+          categoryLoadError: 'Không tải được danh mục cho form sản phẩm. Bạn thử lại sau vài giây nhé.',
+        });
+      });
   }
 
   render() {
@@ -247,9 +265,22 @@ class ProductDetail extends Component {
               <tr>
                 <td>Category</td>
                 <td>
-                  <select value={this.state.cmbCategory} onChange={(e) => this.setState({ cmbCategory: e.target.value })}>
+                  <select
+                    value={this.state.cmbCategory}
+                    onChange={(e) => this.setState({ cmbCategory: e.target.value })}
+                    disabled={this.state.loadingCategories || this.state.categories.length === 0}
+                  >
                     {cates}
                   </select>
+                  {this.state.loadingCategories ? <div className="field-hint">Loading categories...</div> : null}
+                  {this.state.categoryLoadError ? (
+                    <div className="detail-inline-state">
+                      <p>{this.state.categoryLoadError}</p>
+                      <button type="button" className="admin-async-button" onClick={() => this.apiGetCategories()}>
+                        Retry
+                      </button>
+                    </div>
+                  ) : null}
                 </td>
               </tr>
               <tr>

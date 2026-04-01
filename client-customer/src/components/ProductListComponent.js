@@ -6,6 +6,8 @@ import { enhanceProduct } from '../content/siteContent';
 
 const PRODUCT_LIST_RETRY_MESSAGE =
   'Chưa tải được danh sách sản phẩm. Render có thể đang khởi động lại, bạn thử lại sau vài giây nhé.';
+const INITIAL_VISIBLE_PRODUCTS = 12;
+const LOAD_MORE_STEP = 12;
 
 class ProductList extends Component {
   constructor(props) {
@@ -15,6 +17,7 @@ class ProductList extends Component {
       sortBy: 'default',
       isLoading: true,
       loadError: '',
+      visibleCount: INITIAL_VISIBLE_PRODUCTS,
     };
   }
 
@@ -26,12 +29,16 @@ class ProductList extends Component {
     const prevParams = prevProps.params || {};
     const nextParams = this.props.params || {};
     if (prevParams.cid !== nextParams.cid || prevParams.keyword !== nextParams.keyword) {
-      this.loadProducts(nextParams);
+      this.setState({ visibleCount: INITIAL_VISIBLE_PRODUCTS }, () => this.loadProducts(nextParams));
     }
   }
 
   isObjectId(value) {
     return /^[a-f\d]{24}$/i.test(String(value || '').trim());
+  }
+
+  isAllCollectionView(params = this.props.params) {
+    return String(params?.cid || '').trim() === 'all' && !params?.keyword;
   }
 
   formatCategoryTitle(value) {
@@ -67,7 +74,16 @@ class ProductList extends Component {
   }
 
   handleSortChange = (event) => {
-    this.setState({ sortBy: event.target.value });
+    this.setState({
+      sortBy: event.target.value,
+      visibleCount: this.isAllCollectionView() ? INITIAL_VISIBLE_PRODUCTS : this.state.visibleCount,
+    });
+  };
+
+  handleLoadMore = () => {
+    this.setState((prevState) => ({
+      visibleCount: prevState.visibleCount + LOAD_MORE_STEP,
+    }));
   };
 
   handleLoadError = (error) => {
@@ -138,7 +154,11 @@ class ProductList extends Component {
 
   render() {
     const products = this.getSortedProducts(this.state.products);
-    const productCards = products.map((item) => (
+    const useLoadMore = this.isAllCollectionView();
+    const visibleProducts = useLoadMore ? products.slice(0, this.state.visibleCount) : products;
+    const hasMoreProducts = useLoadMore && visibleProducts.length < products.length;
+
+    const productCards = visibleProducts.map((item) => (
       <div key={item._id} className="product-card">
         <Link to={`/product/${item._id}`}>
           <div className="product-image">
@@ -185,11 +205,23 @@ class ProductList extends Component {
         ) : (
           <>
             <div className="collection-grid">{productCards}</div>
-            {products.length === 0 && (
+            {useLoadMore && visibleProducts.length > 0 ? (
+              <div className="collection-load-more-wrap">
+                <div className="collection-count-copy">
+                  Đang xem {visibleProducts.length}/{products.length} sản phẩm
+                </div>
+                {hasMoreProducts ? (
+                  <button type="button" className="collection-load-more-button" onClick={this.handleLoadMore}>
+                    LOAD MORE
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {products.length === 0 ? (
               <p className="empty-message" style={{ padding: '40px', textAlign: 'center' }}>
                 Không tìm thấy sản phẩm nào phù hợp.
               </p>
-            )}
+            ) : null}
           </>
         )}
       </div>

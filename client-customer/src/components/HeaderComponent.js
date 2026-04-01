@@ -12,6 +12,8 @@ class Header extends Component {
     super(props);
     this.state = {
       categories: [],
+      categoriesLoading: true,
+      categoriesError: '',
       menuOpen: false,
       searchOpen: false,
       searchText: '',
@@ -22,7 +24,7 @@ class Header extends Component {
   }
 
   componentDidMount() {
-    axios.get('/api/customer/categories').then((res) => this.setState({ categories: res.data }));
+    this.loadCategories();
     window.addEventListener('scroll', this.handleScroll);
   }
 
@@ -35,6 +37,26 @@ class Header extends Component {
     if (shouldScroll !== this.state.scrolled) {
       this.setState({ scrolled: shouldScroll });
     }
+  };
+
+  loadCategories = () => {
+    this.setState({ categoriesLoading: true, categoriesError: '' });
+    axios
+      .get('/api/customer/categories')
+      .then((res) =>
+        this.setState({
+          categories: Array.isArray(res.data) ? res.data : [],
+          categoriesLoading: false,
+          categoriesError: '',
+        })
+      )
+      .catch(() =>
+        this.setState({
+          categories: [],
+          categoriesLoading: false,
+          categoriesError: 'Chưa tải được danh mục. Bạn thử lại sau vài giây nhé.',
+        })
+      );
   };
 
   closeSearch = () => this.setState({ searchOpen: false, searchText: '' });
@@ -188,15 +210,30 @@ class Header extends Component {
               <Link to="/product/category/all" onClick={() => this.setState({ menuOpen: false })}>
                 TẤT CẢ SẢN PHẨM
               </Link>
-              {this.state.categories.map((category) => (
-                <Link
-                  key={category._id}
-                  to={`/product/category/${category._id}`}
-                  onClick={() => this.setState({ menuOpen: false })}
-                >
-                  {category.name}
-                </Link>
-              ))}
+              {this.state.categoriesLoading ? <div style={{ padding: '12px 0', color: '#777', fontSize: '12px' }}>Đang tải danh mục...</div> : null}
+              {!this.state.categoriesLoading && this.state.categoriesError ? (
+                <div style={{ padding: '12px 0' }}>
+                  <div style={{ color: '#777', fontSize: '12px', lineHeight: '1.7' }}>{this.state.categoriesError}</div>
+                  <button
+                    type="button"
+                    onClick={this.loadCategories}
+                    style={{ marginTop: '10px', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '1px' }}
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              ) : null}
+              {!this.state.categoriesLoading && !this.state.categoriesError
+                ? this.state.categories.map((category) => (
+                    <Link
+                      key={category._id}
+                      to={`/product/category/${category._id}`}
+                      onClick={() => this.setState({ menuOpen: false })}
+                    >
+                      {category.name}
+                    </Link>
+                  ))
+                : null}
             </div>
             <Link to="/pages/about-us" onClick={() => this.setState({ menuOpen: false })}>
               ABOUT

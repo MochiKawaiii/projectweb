@@ -252,7 +252,7 @@ router.post('/login', async function (req, res) {
     }
 
     const token = JwtUtil.genToken(customer.username, customer.password);
-    res.json({ success: true, role: 'customer', message: 'Authentication successful.', token: token, customer: customer });
+    res.json({ success: true, role: 'customer', message: 'Authentication successful.', token, customer });
   } catch (error) {
     console.error('Customer login error:', error.message);
     res.status(500).json({ success: false, message: 'Login failed.' });
@@ -261,7 +261,7 @@ router.post('/login', async function (req, res) {
 
 router.get('/token', JwtUtil.checkToken, function (req, res) {
   const token = req.headers['x-access-token'] || req.headers['authorization'];
-  res.json({ success: true, message: 'Token is valid', token: token });
+  res.json({ success: true, message: 'Token is valid', token });
 });
 
 // ===== MYPROFILE =====
@@ -310,12 +310,12 @@ router.post('/checkout', JwtUtil.checkToken, async function (req, res) {
       country: normalizeText(shippingInput.country || 'Vietnam'),
       addressLine: normalizeText(shippingInput.addressLine),
       region: normalizeText(shippingInput.region),
-      shippingMethod: normalizeText(shippingInput.shippingMethod || 'Giao hàng tận nơi'),
+      shippingMethod: normalizeText(shippingInput.shippingMethod || 'Giao hang tan noi'),
     };
 
     const payment = {
       method: 'COD',
-      label: 'Thanh toán khi giao hàng (COD)',
+      label: 'Thanh toan khi giao hang (COD)',
     };
 
     if (!customer._id || items.length === 0 || total <= 0) {
@@ -350,6 +350,44 @@ router.get('/orders/customer/:cid', JwtUtil.checkToken, async function (req, res
   const _cid = req.params.cid;
   const orders = await OrderDAO.selectByCustID(_cid);
   res.json(orders);
+});
+
+router.put('/orders/cancel/:id', JwtUtil.checkToken, async function (req, res) {
+  try {
+    const _id = req.params.id;
+    const authCustomer = await CustomerDAO.selectByUsernameAndPassword(req.decoded.username, req.decoded.password);
+
+    if (!authCustomer) {
+      return res.status(401).json({ success: false, message: 'Authentication failed.' });
+    }
+
+    const order = await OrderDAO.selectByID(_id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    if (String(order.customer?._id || '') !== String(authCustomer._id)) {
+      return res.status(403).json({ success: false, message: 'You can only cancel your own orders.' });
+    }
+
+    if (String(order.status || 'PENDING').toUpperCase() !== 'PENDING') {
+      return res.status(400).json({ success: false, message: 'Only pending orders can be canceled.' });
+    }
+
+    const result = await OrderDAO.cancelPendingByCustomer(_id, authCustomer._id);
+    if (!result) {
+      return res.status(400).json({ success: false, message: 'Unable to cancel this order.' });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Order canceled successfully.',
+      order: result,
+    });
+  } catch (error) {
+    console.error('Customer cancel order error:', error.message);
+    return res.status(500).json({ success: false, message: 'Unable to cancel order right now.' });
+  }
 });
 
 module.exports = router;
