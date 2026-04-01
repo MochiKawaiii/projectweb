@@ -4,12 +4,17 @@ import { Link } from 'react-router-dom';
 import withRouter from '../utils/withRouter';
 import { enhanceProduct } from '../content/siteContent';
 
+const PRODUCT_LIST_RETRY_MESSAGE =
+  'Chưa tải được danh sách sản phẩm. Render có thể đang khởi động lại, bạn thử lại sau vài giây nhé.';
+
 class ProductList extends Component {
   constructor(props) {
     super(props);
     this.state = {
       products: [],
       sortBy: 'default',
+      isLoading: true,
+      loadError: '',
     };
   }
 
@@ -65,6 +70,15 @@ class ProductList extends Component {
     this.setState({ sortBy: event.target.value });
   };
 
+  handleLoadError = (error) => {
+    console.error(error);
+    this.setState({
+      products: [],
+      isLoading: false,
+      loadError: PRODUCT_LIST_RETRY_MESSAGE,
+    });
+  };
+
   apiGetProductsByCatID(cid) {
     const categoryRef = String(cid || '').trim();
     const directCategoryRequest = categoryRef === 'all' || this.isObjectId(categoryRef);
@@ -73,33 +87,54 @@ class ProductList extends Component {
     axios
       .get(endpoint)
       .then((res) => {
-        const products = res.data.map(enhanceProduct);
-        const filteredProducts = directCategoryRequest
-          ? products
-          : products.filter((item) => item.category?.slug === categoryRef);
-        this.setState({ products: filteredProducts });
+        const products = Array.isArray(res.data) ? res.data.map(enhanceProduct) : [];
+        const filteredProducts = directCategoryRequest ? products : products.filter((item) => item.category?.slug === categoryRef);
+        this.setState({ products: filteredProducts, isLoading: false, loadError: '' });
       })
-      .catch((error) => {
-        console.error(error);
-        this.setState({ products: [] });
-      });
+      .catch(this.handleLoadError);
   }
 
   apiGetProductsByKeyword(keyword) {
     axios
       .get(`/api/customer/products/search/${encodeURIComponent(keyword)}`)
-      .then((res) => this.setState({ products: res.data.map(enhanceProduct) }))
-      .catch((error) => {
-        console.error(error);
-        this.setState({ products: [] });
-      });
+      .then((res) => this.setState({ products: Array.isArray(res.data) ? res.data.map(enhanceProduct) : [], isLoading: false, loadError: '' }))
+      .catch(this.handleLoadError);
   }
 
-  loadProducts(params) {
+  loadProducts = (params) => {
+    this.setState({ isLoading: true, loadError: '' });
     if (params?.cid) this.apiGetProductsByCatID(params.cid);
     else if (params?.keyword) this.apiGetProductsByKeyword(params.keyword);
-    else this.setState({ products: [] });
+    else this.setState({ products: [], isLoading: false, loadError: '' });
+  };
+
+  renderAsyncState(title, message) {
+    return (
+      <div className="collection-state-wrap">
+        <div className="async-state-panel">
+          <div className="async-state-eyebrow">WHENEVER ATELIER</div>
+          <h3>{title}</h3>
+          <p>{message}</p>
+          {!this.state.isLoading ? (
+            <button type="button" className="async-state-button" onClick={() => this.loadProducts(this.props.params)}>
+              Thử lại
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
   }
+
+  renderSkeletonCard = (key) => (
+    <div key={key} className="product-card skeleton-card">
+      <div className="product-image skeleton-box"></div>
+      <div className="product-info">
+        <div className="skeleton-line skeleton-line-xs"></div>
+        <div className="skeleton-line skeleton-line-lg"></div>
+        <div className="skeleton-line skeleton-line-sm"></div>
+      </div>
+    </div>
+  );
 
   render() {
     const products = this.getSortedProducts(this.state.products);
@@ -108,12 +143,12 @@ class ProductList extends Component {
         <Link to={`/product/${item._id}`}>
           <div className="product-image">
             <img src={item.image} alt={item.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <div className="add-to-cart-overlay">{'Th\u00eam v\u00e0o gi\u1ecf'}</div>
+            <div className="add-to-cart-overlay">Thêm vào giỏ</div>
           </div>
           <div className="product-info">
             <div className="brand-label">WHENEVER</div>
             <div className="product-name">{item.name}</div>
-            <div className="product-price">{`${Number(item.price || 0).toLocaleString('vi-VN')}\u20ab`}</div>
+            <div className="product-price">{`${Number(item.price || 0).toLocaleString('vi-VN')}₫`}</div>
             <div className="product-type">{item.marketing?.subtitle || item.category?.name}</div>
           </div>
         </Link>
@@ -121,7 +156,7 @@ class ProductList extends Component {
     ));
 
     const pageTitle = this.props.params.keyword
-      ? `K\u1ebft qu\u1ea3 t\u00ecm ki\u1ebfm: "${decodeURIComponent(this.props.params.keyword)}"`
+      ? `Kết quả tìm kiếm: "${decodeURIComponent(this.props.params.keyword)}"`
       : products[0]?.category?.name || this.formatCategoryTitle(this.props.params.cid);
 
     return (
@@ -130,18 +165,32 @@ class ProductList extends Component {
           <h1>{pageTitle}</h1>
         </div>
         <div className="collection-sort" style={{ padding: '0 40px' }}>
-          <select value={this.state.sortBy} onChange={this.handleSortChange} aria-label="Sort products">
-            <option value="default">{'S\u1eafp x\u1ebfp'}</option>
-            <option value="price-asc">{'Gi\u00e1: Th\u1ea5p \u0111\u1ebfn Cao'}</option>
-            <option value="price-desc">{'Gi\u00e1: Cao \u0111\u1ebfn Th\u1ea5p'}</option>
-            <option value="newest">{'M\u1edbi nh\u1ea5t'}</option>
+          <select value={this.state.sortBy} onChange={this.handleSortChange} aria-label="Sort products" disabled={this.state.isLoading}>
+            <option value="default">Sắp xếp</option>
+            <option value="price-asc">Giá: Thấp đến Cao</option>
+            <option value="price-desc">Giá: Cao đến Thấp</option>
+            <option value="newest">Mới nhất</option>
           </select>
         </div>
-        <div className="collection-grid">{productCards}</div>
-        {products.length === 0 && (
-          <p className="empty-message" style={{ padding: '40px', textAlign: 'center' }}>
-            {'Kh\u00f4ng t\u00ecm th\u1ea5y s\u1ea3n ph\u1ea9m n\u00e0o ph\u00f9 h\u1ee3p.'}
-          </p>
+
+        {this.state.isLoading ? (
+          <>
+            <div className="collection-grid">
+              {Array.from({ length: 8 }, (_, index) => this.renderSkeletonCard(`collection-skeleton-${index}`))}
+            </div>
+            <div className="loading-state-caption collection-loading-caption">Đang tải danh sách sản phẩm...</div>
+          </>
+        ) : this.state.loadError ? (
+          this.renderAsyncState('Chưa tải được danh mục', this.state.loadError)
+        ) : (
+          <>
+            <div className="collection-grid">{productCards}</div>
+            {products.length === 0 && (
+              <p className="empty-message" style={{ padding: '40px', textAlign: 'center' }}>
+                Không tìm thấy sản phẩm nào phù hợp.
+              </p>
+            )}
+          </>
         )}
       </div>
     );

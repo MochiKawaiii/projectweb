@@ -4,6 +4,9 @@ import withRouter from '../utils/withRouter';
 import MyContext from '../contexts/MyContext';
 import { SITE_INFO, enhanceProduct, getProductContent } from '../content/siteContent';
 
+const PRODUCT_DETAIL_RETRY_MESSAGE =
+  'Chưa tải được thông tin sản phẩm. Máy chủ có thể đang khởi động lại, bạn thử lại sau ít giây nhé.';
+
 class ProductDetail extends Component {
   static contextType = MyContext;
 
@@ -14,11 +17,19 @@ class ProductDetail extends Component {
       txtQuantity: 1,
       selectedSize: '',
       selectedColor: '',
+      isLoading: true,
+      loadError: '',
     };
   }
 
   componentDidMount() {
     this.apiGetProduct(this.props.params.id);
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.params.id !== this.props.params.id) {
+      this.apiGetProduct(this.props.params.id);
+    }
   }
 
   btnAdd2CartClick = (e, navigateAfter = false) => {
@@ -47,6 +58,7 @@ class ProductDetail extends Component {
   };
 
   apiGetProduct(id) {
+    this.setState({ isLoading: true, loadError: '' });
     axios
       .get(`/api/customer/products/${id}`)
       .then((res) => {
@@ -55,9 +67,19 @@ class ProductDetail extends Component {
           product,
           selectedSize: product?.sizes?.[0] || '',
           selectedColor: product?.colors?.[0] || '',
+          isLoading: false,
+          loadError: '',
+          txtQuantity: 1,
         });
       })
-      .catch((error) => console.error(error));
+      .catch((error) => {
+        console.error(error);
+        this.setState({
+          product: null,
+          isLoading: false,
+          loadError: PRODUCT_DETAIL_RETRY_MESSAGE,
+        });
+      });
   }
 
   renderSizeButtons(prod) {
@@ -108,9 +130,75 @@ class ProductDetail extends Component {
       .map((line, index) => <p key={`${index}-${line}`}>{line}</p>);
   }
 
+  renderLoadingState() {
+    return (
+      <div className="product-page-wrapper">
+        <div className="async-state-inline">
+          <div className="async-state-eyebrow">WHENEVER ATELIER</div>
+          <h3>Đang tải sản phẩm</h3>
+          <p>Máy chủ đang chuẩn bị dữ liệu. Nếu bạn vừa mở web sau một lúc, Render có thể cần thêm vài giây.</p>
+        </div>
+        <div className="product-page-inner product-page-inner-loading">
+          <div className="product-gallery">
+            <div className="product-gallery-skeleton skeleton-box"></div>
+          </div>
+          <div className="product-details-content product-details-skeleton">
+            <div className="skeleton-line skeleton-line-xs"></div>
+            <div className="skeleton-line skeleton-line-xl"></div>
+            <div className="skeleton-line skeleton-line-sm"></div>
+            <div className="product-origin-card product-origin-card-skeleton">
+              <div className="skeleton-line skeleton-line-lg"></div>
+              <div className="skeleton-line skeleton-line-lg"></div>
+              <div className="skeleton-line skeleton-line-md"></div>
+            </div>
+            <div className="variant-options">
+              <div className="skeleton-line skeleton-line-xs"></div>
+              <div className="size-buttons">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div key={`size-skeleton-${index}`} className="size-btn skeleton-pill"></div>
+                ))}
+              </div>
+            </div>
+            <div className="product-spec-grid">
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={`spec-skeleton-${index}`} className="product-spec-item">
+                  <div className="skeleton-line skeleton-line-xs"></div>
+                  <div className="skeleton-line skeleton-line-md"></div>
+                </div>
+              ))}
+            </div>
+            <div className="add-to-cart-wrapper">
+              <div className="quantity-selector skeleton-button-row"></div>
+              <div className="btn-add-cart skeleton-button-row"></div>
+            </div>
+            <div className="btn-buy-now skeleton-button-row"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  renderRetryState() {
+    return (
+      <div className="product-page-wrapper">
+        <div className="async-state-panel async-state-page">
+          <div className="async-state-eyebrow">WHENEVER ATELIER</div>
+          <h3>Chưa tải được sản phẩm</h3>
+          <p>{this.state.loadError}</p>
+          <button type="button" className="async-state-button" onClick={() => this.apiGetProduct(this.props.params.id)}>
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   render() {
     const prod = this.state.product;
-    if (!prod) return <div className="page-content" style={{ textAlign: 'center' }}>Đang tải dữ liệu...</div>;
+
+    if (this.state.isLoading) return this.renderLoadingState();
+    if (!prod && this.state.loadError) return this.renderRetryState();
+    if (!prod) return null;
 
     const marketing = getProductContent(prod) || {};
     const categoryName = prod.category?.name || 'WHENEVER ATELIER';
@@ -128,13 +216,19 @@ class ProductDetail extends Component {
             <div className="breadcrumb">Trang chủ / {categoryName} / {prod.name}</div>
             <h1 className="product-title">{prod.name}</h1>
             <div className="product-price-wrapper">
-              <span className="current-price">{prod.price?.toLocaleString()}₫</span>
+              <span className="current-price">{prod.price?.toLocaleString('vi-VN')}₫</span>
             </div>
 
             <div className="product-origin-card">
-              <p><strong>Xuất xứ:</strong> {marketing.origin || 'Việt Nam'}</p>
-              <p><strong>Phân phối bởi:</strong> {marketing.distributor || SITE_INFO.companyName}</p>
-              <p><strong>Địa chỉ:</strong> {marketing.address || SITE_INFO.address}</p>
+              <p>
+                <strong>Xuất xứ:</strong> {marketing.origin || 'Việt Nam'}
+              </p>
+              <p>
+                <strong>Phân phối bởi:</strong> {marketing.distributor || SITE_INFO.companyName}
+              </p>
+              <p>
+                <strong>Địa chỉ:</strong> {marketing.address || SITE_INFO.address}
+              </p>
             </div>
 
             {this.renderSizeButtons(prod)}
@@ -177,7 +271,7 @@ class ProductDetail extends Component {
                     prod.description,
                     'Whenever Atelier phát triển sản phẩm theo tinh thần tối giản, chỉn chu và dễ mặc trong nhiều ngữ cảnh đời sống.'
                   )}
-                  {marketing.form && <p>{marketing.form}</p>}
+                  {marketing.form ? <p>{marketing.form}</p> : null}
                 </div>
               </details>
 

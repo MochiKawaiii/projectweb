@@ -9,21 +9,23 @@ import {
   enhanceProduct,
 } from '../content/siteContent';
 
+const HOME_RETRY_MESSAGE =
+  'Máy chủ đang khởi động hoặc mạng chưa ổn định. Bạn thử lại sau vài giây để tải đầy đủ sản phẩm.';
+
 class Home extends Component {
   constructor(props) {
     super(props);
     this.state = {
       allProducts: [],
       activeTab: 0,
+      isLoadingProducts: true,
+      loadError: '',
     };
     this.carouselTrackRef = React.createRef();
   }
 
   componentDidMount() {
-    axios
-      .get('/api/customer/products/category/all')
-      .then((res) => this.setState({ allProducts: res.data.map(enhanceProduct) }))
-      .catch((error) => console.error(error));
+    this.loadProducts();
 
     const fadeEls = document.querySelectorAll('.fade-in');
     const observer = new IntersectionObserver(
@@ -44,6 +46,27 @@ class Home extends Component {
     if (this.observer) this.observer.disconnect();
   }
 
+  loadProducts = () => {
+    this.setState({ isLoadingProducts: true, loadError: '' });
+    axios
+      .get('/api/customer/products/category/all')
+      .then((res) => {
+        this.setState({
+          allProducts: Array.isArray(res.data) ? res.data.map(enhanceProduct) : [],
+          isLoadingProducts: false,
+          loadError: '',
+        });
+      })
+      .catch((error) => {
+        console.error(error);
+        this.setState({
+          allProducts: [],
+          isLoadingProducts: false,
+          loadError: HOME_RETRY_MESSAGE,
+        });
+      });
+  };
+
   scrollCarousel = (direction) => {
     if (this.carouselTrackRef.current) {
       this.carouselTrackRef.current.scrollBy({ left: direction * 320, behavior: 'smooth' });
@@ -53,6 +76,38 @@ class Home extends Component {
   getProductsBySlug = (slug) => {
     return this.state.allProducts.filter((product) => product.category?.slug === slug);
   };
+
+  renderAsyncState = ({ title, copy, compact = false }) => (
+    <div className={`async-state-panel ${compact ? 'is-compact' : ''}`}>
+      <div className="async-state-eyebrow">WHENEVER ATELIER</div>
+      <h3>{title}</h3>
+      <p>{copy}</p>
+      {!this.state.isLoadingProducts ? (
+        <button type="button" className="async-state-button" onClick={this.loadProducts}>
+          Thử lại
+        </button>
+      ) : null}
+    </div>
+  );
+
+  renderSkeletonCard = (key, carousel = false) => (
+    <div key={key} className={carousel ? 'product-card-carousel skeleton-card' : 'product-card skeleton-card'}>
+      <div className="product-image skeleton-box"></div>
+      <div className="product-info">
+        {!carousel ? <div className="skeleton-line skeleton-line-xs"></div> : null}
+        <div className="skeleton-line skeleton-line-lg"></div>
+        <div className="skeleton-line skeleton-line-sm"></div>
+      </div>
+    </div>
+  );
+
+  renderFeaturedProductSkeleton = (key) => (
+    <div key={key} className="featured-product featured-product-skeleton">
+      <div className="skeleton-line skeleton-line-lg"></div>
+      <div className="skeleton-line skeleton-line-md"></div>
+      <div className="skeleton-line skeleton-line-xs"></div>
+    </div>
+  );
 
   renderProductCard = (product, carousel = false) => {
     if (carousel) {
@@ -81,7 +136,7 @@ class Home extends Component {
           <div className="product-info">
             <div className="brand-label">WHENEVER</div>
             <div className="product-name">{product.name}</div>
-            <div className="product-price">{product.price?.toLocaleString()}₫</div>
+            <div className="product-price">{product.price?.toLocaleString('vi-VN')}₫</div>
             <div className="product-type">{product.marketing?.subtitle || product.category?.name}</div>
           </div>
         </Link>
@@ -89,11 +144,78 @@ class Home extends Component {
     );
   };
 
+  renderCarouselContent(products) {
+    if (this.state.isLoadingProducts) {
+      return (
+        <>
+          <div className="carousel-track active" ref={this.carouselTrackRef}>
+            {Array.from({ length: 4 }, (_, index) => this.renderSkeletonCard(`carousel-skeleton-${index}`, true))}
+          </div>
+          <div className="loading-state-caption">Đang tải bộ sưu tập nổi bật...</div>
+        </>
+      );
+    }
+
+    if (this.state.loadError) {
+      return this.renderAsyncState({
+        title: 'Chưa tải được bộ sưu tập',
+        copy: this.state.loadError,
+      });
+    }
+
+    return <div className="carousel-track active" ref={this.carouselTrackRef}>{products.map((product) => this.renderProductCard(product, true))}</div>;
+  }
+
+  renderGridContent(products) {
+    if (this.state.isLoadingProducts) {
+      return (
+        <>
+          <div className="product-grid">
+            {Array.from({ length: 8 }, (_, index) => this.renderSkeletonCard(`grid-skeleton-${index}`))}
+          </div>
+          <div className="loading-state-caption">Đang tải sản phẩm mới nhất...</div>
+        </>
+      );
+    }
+
+    if (this.state.loadError) {
+      return this.renderAsyncState({
+        title: 'Chưa tải được sản phẩm',
+        copy: this.state.loadError,
+      });
+    }
+
+    return <div className="product-grid">{products.map((product) => this.renderProductCard(product))}</div>;
+  }
+
+  renderFeaturedProducts(products) {
+    if (this.state.isLoadingProducts) {
+      return Array.from({ length: 2 }, (_, index) => this.renderFeaturedProductSkeleton(`featured-skeleton-${index}`));
+    }
+
+    if (this.state.loadError) {
+      return this.renderAsyncState({
+        title: 'Chưa tải được sản phẩm denim',
+        copy: this.state.loadError,
+        compact: true,
+      });
+    }
+
+    return products.map((product) => (
+      <div key={product._id} className="featured-product">
+        <div className="fp-name">{product.name}</div>
+        <div className="fp-desc">{product.marketing?.material || product.marketing?.subtitle || 'Denim capsule by Whenever Atelier'}</div>
+        <div className="fp-price">{product.price?.toLocaleString('vi-VN')}₫</div>
+      </div>
+    ));
+  }
+
   render() {
     const activeCollection = HOME_COLLECTIONS[this.state.activeTab];
     const carouselProducts = this.getProductsBySlug(activeCollection.slug).slice(0, 4);
     const activeProducts = this.getProductsBySlug('whenever-active').slice(0, 8);
     const denimProducts = this.getProductsBySlug('denim').slice(0, 2);
+    const disableCarouselNav = this.state.isLoadingProducts || Boolean(this.state.loadError) || carouselProducts.length === 0;
 
     return (
       <div>
@@ -125,18 +247,16 @@ class Home extends Component {
           <div className="section-header" style={{ padding: '0 40px' }}>
             <div></div>
             <div className="carousel-nav">
-              <button aria-label="Previous" onClick={() => this.scrollCarousel(-1)}>
+              <button aria-label="Previous" disabled={disableCarouselNav} onClick={() => this.scrollCarousel(-1)}>
                 ‹
               </button>
-              <button aria-label="Next" onClick={() => this.scrollCarousel(1)}>
+              <button aria-label="Next" disabled={disableCarouselNav} onClick={() => this.scrollCarousel(1)}>
                 ›
               </button>
             </div>
           </div>
 
-          <div className="carousel-track active" ref={this.carouselTrackRef}>
-            {carouselProducts.map((product) => this.renderProductCard(product, true))}
-          </div>
+          {this.renderCarouselContent(carouselProducts)}
 
           <div style={{ textAlign: 'center', padding: '20px 40px 0' }}>
             <Link to={`/product/category/${activeCollection.slug}`} className="buy-now-btn">
@@ -169,9 +289,7 @@ class Home extends Component {
 
         <section className="product-grid-section fade-in" id="active-grid">
           <h2 className="section-title">WHENEVER ACTIVE</h2>
-          <div className="product-grid">
-            {activeProducts.map((product) => this.renderProductCard(product))}
-          </div>
+          {this.renderGridContent(activeProducts)}
         </section>
 
         <section className="featured-section fade-in" id="featured">
@@ -189,13 +307,7 @@ class Home extends Component {
               {HOME_EDITORIAL.starWashed.paragraphs.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
               ))}
-              {denimProducts.map((product) => (
-                <div key={product._id} className="featured-product">
-                  <div className="fp-name">{product.name}</div>
-                  <div className="fp-desc">{product.marketing?.material || product.marketing?.subtitle || 'Denim capsule by Whenever Atelier'}</div>
-                  <div className="fp-price">{product.price?.toLocaleString()}₫</div>
-                </div>
-              ))}
+              {this.renderFeaturedProducts(denimProducts)}
               <Link to={HOME_EDITORIAL.starWashed.cta.to} className="buy-now-btn" style={{ display: 'inline-block' }}>
                 {HOME_EDITORIAL.starWashed.cta.label}
               </Link>
