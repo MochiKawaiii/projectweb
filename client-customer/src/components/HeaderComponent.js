@@ -45,7 +45,7 @@ class Header extends Component {
       .get('/api/customer/categories')
       .then((res) =>
         this.setState({
-          categories: Array.isArray(res.data) ? res.data : [],
+          categories: Array.isArray(res.data) ? res.data : Array.isArray(res.data?.categories) ? res.data.categories : [],
           categoriesLoading: false,
           categoriesError: '',
         })
@@ -89,6 +89,7 @@ class Header extends Component {
 
   render() {
     const totalCart = this.context.mycart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    const categories = Array.isArray(this.state.categories) ? this.state.categories : [];
 
     return (
       <>
@@ -224,7 +225,7 @@ class Header extends Component {
                 </div>
               ) : null}
               {!this.state.categoriesLoading && !this.state.categoriesError
-                ? this.state.categories.map((category) => (
+                ? categories.map((category) => (
                     <Link
                       key={category._id}
                       to={`/product/category/${category._id}`}
