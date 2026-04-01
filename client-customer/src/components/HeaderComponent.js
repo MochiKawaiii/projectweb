@@ -223,9 +223,7 @@ class Header extends Component {
                 </Link>
                 <button
                   onClick={() => {
-                    this.context.setToken('');
-                    this.context.setCustomer(null);
-                    this.context.setMycart([]);
+                    this.context.logout();
                     this.setState({ menuOpen: false });
                   }}
                   style={{

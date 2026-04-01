@@ -62,6 +62,7 @@ const ProductDAO = {
       slug: product.slug,
       price: product.price,
       image: product.image,
+      images: product.images,
       description: product.description,
       sizes: product.sizes,
       colors: product.colors,

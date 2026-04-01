@@ -123,9 +123,14 @@ class Myprofile extends Component {
               <label>Email</label>
               <input type="email" value={this.state.txtEmail} onChange={(e) => this.setState({ txtEmail: e.target.value })} />
             </div>
-            <button type="submit" className="form-submit" onClick={(e) => this.btnUpdateClick(e)}>
-              Cập nhật
-            </button>
+            <div className="account-profile-actions">
+              <button type="submit" className="form-submit" onClick={(e) => this.btnUpdateClick(e)}>
+                Cập nhật
+              </button>
+              <button type="button" className="account-logout-button" onClick={() => this.context.logout()}>
+                Đăng xuất
+              </button>
+            </div>
           </form>
         </div>
 
